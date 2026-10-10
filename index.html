@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0F6A6F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ตรวจรับของ">
+<title>ตรวจรับสินค้าขาเข้า UAM</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230F6A6F'/%3E%3Cpath d='M14 24l18-10 18 10v18L32 52 14 42z' fill='none' stroke='white' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M24 33l6 6 11-12' fill='none' stroke='white' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<style>
+/* Layout: one job per screen — lots → boxes → count. Big targets for gloved hands, summary before detail. */
+:root{
+  --bg:#ECEFF0; --surface:#FFFFFF; --surface-2:#F5F7F7; --ink:#14202A; --muted:#55626C; --line:#CDD5D9;
+  --accent:#0F6A6F; --accent-ink:#FFFFFF; --accent-soft:#D8ECEC;
+  --kraft:#9A692A; --kraft-soft:#F1E4CF;
+  --ok:#1B7442; --ok-soft:#D9EFE1; --warn:#8C5900; --warn-soft:#FAE8C6; --bad:#AE261D; --bad-soft:#F7DCD8;
+  --shadow:0 1px 2px rgba(20,32,42,.07),0 8px 24px rgba(20,32,42,.07);
+  --f-display:"Bai Jamjuree","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai","Noto Sans Thai","Thonburi",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --tap:60px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0D1317; --surface:#151F26; --surface-2:#1B262D; --ink:#E6EDF0; --muted:#97A6B0; --line:#2B3840;
+  --accent:#58BBBF; --accent-ink:#04282A; --accent-soft:#15373A;
+  --kraft:#DCAB65; --kraft-soft:#352A19;
+  --ok:#66CC92; --ok-soft:#163325; --warn:#EBB552; --warn-soft:#3A2B10; --bad:#F48A80; --bad-soft:#3D1C19;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}}
+
+*{box-sizing:border-box}
+html{font-size:17px;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.5;-webkit-tap-highlight-color:transparent;min-height:100vh;padding-top:env(safe-area-inset-top,0px)}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+img{max-width:100%}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.2;text-wrap:balance}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:10px;min-height:64px}
+.top h1{font-size:1.15rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sub{display:block;font-family:var(--f-body);font-size:.78rem;color:var(--muted);font-weight:500}
+.back{width:48px;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
+.back svg{width:24px;height:24px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.pill i{width:9px;height:9px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+main{padding-block:16px 120px}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(2,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{border:0;background:none;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:.85rem;font-weight:600}
+.tabs svg{width:26px;height:26px}
+.tabs button[aria-current="true"]{color:var(--accent)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:var(--tap);padding:0 22px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;font-size:1rem;white-space:nowrap}
+.btn svg{width:24px;height:24px;flex:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.good{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--accent);padding:0 10px}
+.btn.wide{width:100%}
+.btn.huge{min-height:76px;font-size:1.25rem;border-radius:18px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.bar-actions{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:25;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);border-top:1px solid var(--line)}
+.bar-actions.notabs{bottom:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+.bar-actions .wrap{display:flex;gap:10px;padding-block:10px}
+.bar-actions .btn{flex:1}
+
+/* generic */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.label{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.h-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.h-row h2{font-size:1.45rem}
+.inp{width:100%;min-height:var(--tap);border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 14px;font-size:1.05rem}
+textarea.inp{min-height:84px;resize:vertical}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>span{font-size:.85rem;color:var(--muted);font-weight:600}
+.bar{height:10px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.empty{padding:40px 20px;text-align:center}
+.empty h3{font-size:1.2rem;margin-bottom:8px}
+.empty p{color:var(--muted);margin:0 auto;max-width:34em}
+.banner{border-radius:14px;padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;font-size:.95rem}
+.banner.warn{background:var(--warn-soft);color:var(--warn)} .banner.info{background:var(--accent-soft);color:var(--accent)} .banner.bad{background:var(--bad-soft);color:var(--bad)} .banner.ok{background:var(--ok-soft);color:var(--ok)}
+.st{display:inline-flex;align-items:center;font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.st.todo{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.st.part{background:var(--accent-soft);color:var(--accent)}
+.st.ok{background:var(--ok-soft);color:var(--ok)}
+.st.over{background:var(--warn-soft);color:var(--warn)}
+.st.noted{background:var(--bad-soft);color:var(--bad)}
+.st.closed{background:var(--ink);color:var(--bg)}
+.diff-neg{color:var(--bad)} .diff-pos{color:var(--warn)} .diff-zero{color:var(--ok)}
+.pcode{font-family:var(--f-mono);font-weight:600;background:var(--kraft-soft);padding:3px 9px;border-radius:7px;white-space:nowrap;font-size:1rem}
+
+/* login */
+.login{max-width:440px;margin:0 auto;padding:24px 16px;display:flex;flex-direction:column;gap:18px}
+.login h1{font-size:1.8rem}
+.pin{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.pin span{height:64px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center;font-family:var(--f-display);font-size:1.7rem;font-weight:700}
+.pin span.on{border-color:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad button{min-height:64px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-family:var(--f-display);font-size:1.5rem;font-weight:600}
+
+/* lots */
+.lots{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr))}
+.lot{display:flex;flex-direction:column;gap:12px;padding:16px 18px;text-align:left;width:100%;color:inherit}
+.lot h3{font-size:1.2rem}
+.lot .meta{font-size:.85rem;color:var(--muted);display:flex;gap:4px 14px;flex-wrap:wrap}
+.lot .nums{display:flex;justify-content:space-between;font-size:.9rem}
+.ex{font-size:.75rem;font-weight:700;color:var(--kraft);background:var(--kraft-soft);padding:2px 8px;border-radius:6px}
+
+/* lot screen */
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.summary div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.summary b{display:block;font-family:var(--f-display);font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.summary span{font-size:.8rem;color:var(--muted)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:14px}
+.seg button{min-height:52px;border:0;border-radius:11px;background:none;font-weight:700;color:var(--muted);font-size:1rem}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.boxes{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (min-width:640px){.boxes{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media (min-width:1000px){.boxes{grid-template-columns:repeat(7,minmax(0,1fr))}}
+.box{position:relative;aspect-ratio:1/1;max-width:100%;border-radius:16px;border:2px solid var(--line);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px;color:inherit}
+.box .n{font-family:var(--f-display);font-weight:700;font-size:2rem;line-height:1}
+.box .t{font-size:.75rem;color:var(--muted);font-weight:600}
+.box .s{font-size:.78rem;font-weight:700}
+.box[data-st="part"]{border-color:var(--accent);background:var(--accent-soft)}
+.box[data-st="ok"]{border-color:var(--ok);background:var(--ok-soft)}
+.box[data-st="ok"] .s{color:var(--ok)}
+.box[data-st="over"]{border-color:var(--warn);background:var(--warn-soft)}
+.box[data-st="over"] .s{color:var(--warn)}
+.box .chk{position:absolute;top:6px;right:6px;width:22px;height:22px;color:var(--ok)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:12px 0 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-1px;border:2px solid}
+.search{position:relative;margin-bottom:12px}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:22px;height:22px;color:var(--muted)}
+.search .inp{padding-left:46px;font-size:1.15rem}
+.plist{display:flex;flex-direction:column;gap:8px}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:14px 16px;text-align:left;width:100%;color:inherit;border-left:6px solid var(--line)}
+.prow[data-st="part"]{border-left-color:var(--accent)} .prow[data-st="ok"]{border-left-color:var(--ok)} .prow[data-st="over"]{border-left-color:var(--warn)} .prow[data-st="noted"]{border-left-color:var(--bad)}
+.prow .d{font-size:.85rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .q{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.prow .q b{font-family:var(--f-display);font-size:1.35rem}
+.prow .q small{color:var(--muted);font-size:.85rem}
+
+/* box screen */
+.boxhead{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.boxhead .big{font-family:var(--f-display);font-weight:700;font-size:3rem;line-height:1}
+.lines{display:flex;flex-direction:column;gap:10px}
+.bline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 12px;padding:14px;align-items:center;border-left:6px solid var(--line)}
+.bline[data-st="part"]{border-left-color:var(--accent)} .bline[data-st="ok"]{border-left-color:var(--ok)} .bline[data-st="over"]{border-left-color:var(--warn)}
+.bline .info{min-width:0;display:flex;flex-direction:column;gap:4px;text-align:left;background:none;border:0;padding:0;color:inherit}
+.bline .info .d{font-size:.85rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bline .info .c{font-size:.95rem;font-variant-numeric:tabular-nums}
+.plus{min-width:120px;min-height:64px;border-radius:14px;border:2px solid var(--accent);background:var(--accent-soft);color:var(--accent);font-family:var(--f-display);font-weight:700;font-size:1.35rem;font-variant-numeric:tabular-nums;padding:0 14px}
+.plus.done{border-color:var(--ok);background:var(--ok-soft);color:var(--ok);font-size:1rem}
+
+/* part screen */
+.phead{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.phead .code{font-family:var(--f-mono);font-weight:600;font-size:1.7rem;background:var(--kraft-soft);align-self:flex-start;padding:4px 12px;border-radius:9px}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.trio div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.trio span{font-size:.8rem;color:var(--muted)}
+.trio b{display:block;font-family:var(--f-display);font-size:2rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:48px;min-width:56px;padding:0 16px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-weight:700;font-size:1rem}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.stack{display:flex;flex-direction:column;gap:12px}
+.hist{display:flex;flex-direction:column}
+.hrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.hrow:last-child{border-bottom:0}
+.hrow .q{font-family:var(--f-display);font-weight:700;min-width:70px;font-variant-numeric:tabular-nums}
+.hrow.void{opacity:.45;text-decoration:line-through}
+.hrow img{width:48px;height:48px;object-fit:cover;border-radius:8px}
+details.more{border-top:1px solid var(--line);padding-top:14px;margin-top:6px}
+details.more>summary{cursor:pointer;font-weight:700;min-height:48px;display:flex;align-items:center;justify-content:space-between;list-style:none}
+details.more>summary::-webkit-details-marker{display:none}
+.tagread{position:relative;padding:14px 18px;background:var(--kraft-soft);border-radius:10px;font-family:var(--f-mono);font-size:1rem;line-height:1.8;margin-bottom:14px}
+.tagread::before,.tagread::after{content:"";position:absolute;width:20px;height:20px;border:3px solid var(--ink)}
+.tagread::before{left:-4px;top:-4px;border-right:0;border-bottom:0}
+.tagread::after{right:-4px;bottom:-4px;border-left:0;border-top:0}
+
+/* keypad sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(8,14,18,.5);z-index:60}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--surface);border-radius:22px 22px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px;max-height:92vh;overflow:auto}
+.sheet h3{font-size:1.2rem}
+.disp{display:flex;justify-content:space-between;align-items:center;border:2px dashed var(--line);border-radius:14px;padding:8px 16px;min-height:72px}
+.disp b{font-family:var(--f-display);font-size:2.4rem;font-variant-numeric:tabular-nums}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kp button{min-height:66px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface-2);font-family:var(--f-display);font-size:1.6rem;font-weight:600}
+
+/* new lot */
+.steps{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.step{font-size:.85rem;font-weight:600;padding:5px 12px;border-radius:99px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.step.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.drop{border:2.5px dashed var(--line);border-radius:18px;padding:28px 16px;text-align:center;background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:14px}
+.thumbs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.thumb{position:relative;width:104px;height:132px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb button{position:absolute;top:4px;right:4px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:20px;line-height:1}
+.hgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));padding:16px}
+.lrow{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.6fr) minmax(0,.8fr) 52px;gap:10px;padding:12px;align-items:end;position:relative}
+.lrow .desc{grid-column:1/-1}
+.lrow.low{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
+.lrow .flag{position:absolute;top:-10px;right:12px;font-size:.75rem;font-weight:700;background:var(--warn);color:var(--surface);padding:2px 9px;border-radius:7px}
+.lrow .del{width:52px;height:var(--tap);border-radius:12px;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center}
+@media (max-width:520px){.lrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 52px}.lrow .f-part{grid-column:1/-1}}
+.reading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 16px;text-align:center}
+.spin{width:44px;height:44px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* close lot */
+.mis{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.mis .top-line{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* dashboard */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+@media (max-width:720px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{padding:14px 16px}
+.kpi b{display:block;font-family:var(--f-display);font-size:2.1rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi span{font-size:.85rem;color:var(--muted)}
+.kpi.alert b{color:var(--bad)}
+.dgrid{display:grid;gap:16px}
+@media (min-width:900px){.dgrid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}}
+.dcard{padding:16px}
+.dcard h3{font-size:1.1rem;margin-bottom:12px}
+.lp{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 0;border-bottom:1px solid var(--line);text-align:left;width:100%;background:none;border-left:0;border-right:0;border-top:0;color:inherit}
+.lp:last-child{border-bottom:0}
+.lp .bar{grid-column:1/-1}
+.tw{overflow-x:auto}
+table.t{width:100%;border-collapse:collapse;font-size:.9rem}
+table.t th{text-align:left;font-size:.78rem;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.feed .f{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.feed .f:last-child{border-bottom:0}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;align-items:end;height:140px}
+.day{display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;font-size:.75rem;color:var(--muted)}
+.day i{display:block;width:100%;max-width:36px;background:var(--accent);border-radius:6px 6px 2px 2px;min-height:3px}
+.day b{color:var(--ink);font-size:.8rem;font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:.95rem;font-weight:500;z-index:90;max-width:calc(100% - 32px);box-shadow:var(--shadow);text-align:center}
+.modal-bg{position:fixed;inset:0;background:rgba(8,14,18,.55);z-index:80;display:grid;place-items:center;padding:16px}
+.modal{background:var(--surface);border-radius:18px;max-width:480px;width:100%;max-height:86vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.pick{display:flex;flex-direction:column;gap:8px}
+.pick button{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;border:1.5px solid var(--line);background:var(--surface-2);border-radius:12px;padding:12px 14px;min-height:56px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:2s!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<main id="main" class="wrap"></main>
+<div id="actions"></div>
+<nav class="tabs" id="tabs" hidden>
+  <button data-act="go" data-v="home" id="tab-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>ล็อตรับของ</button>
+  <button data-act="go" data-v="dash" id="tab-dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V11M11 20V5M17 20v-6M22 20H2"/></svg>แดชบอร์ด</button>
+</nav>
+<div id="sheet"></div>
+<div id="modal"></div>
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="fDoc" accept="image/*" multiple hidden>
+<input type="file" id="fTag" accept="image/*" capture="environment" hidden>
+<input type="file" id="fPhoto" accept="image/*" capture="environment" hidden>
+
+<script>
+/* ============ settings ============ */
+const CFG={
+  url:'https://lgjuokwwsjpicqljimpq.supabase.co',
+  key:'sb_publishable_tA3YE5-DN3xV_MSzqZLHaA_IvvsZg1Y'   // public key; writes also need the site code typed at sign-in
+};
+
+/* ============ utilities ============ */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n||0).toLocaleString('th-TH');
+const sgn=n=>n>0?'+'+fmt(n):fmt(n);
+const norm=s=>String(s||'').toUpperCase().replace(/\s+/g,'').replace(/[\\|]/g,'/');
+const digits=s=>String(s||'').replace(/\D/g,'');
+const uuid=()=>crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)});
+const now=()=>new Date().toISOString();
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const tm=s=>{try{return new Date(s).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}catch(e){return''}};
+const dt=s=>{try{return new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return''}};
+const boxSort=(a,b)=>{if(a==='—')return 1;if(b==='—')return -1;const x=parseFloat(a),y=parseFloat(b);return(!isNaN(x)&&!isNaN(y)&&x!==y)?x-y:String(a).localeCompare(String(b),'th',{numeric:true})};
+function toast(m,ms=2400){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(t._t);t._t=setTimeout(()=>t.hidden=true,ms)}
+function buzz(){try{navigator.vibrate&&navigator.vibrate(18)}catch(e){}}
+const I={
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  scan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M7 12h10"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
+  undo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+  next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>'
+};
+const STL={todo:'ยังไม่นับ',part:'ยังไม่ครบ',ok:'ครบ',over:'เกิน',noted:'ไม่ตรง · มีเหตุผล'};
+
+/* ============ state ============ */
+const S={
+  me:LS.get('rcv_me',null),          // {name,pin}
+  view:'home',rid:null,box:null,part:null,
+  mode:LS.get('rcv_mode',{}),        // per lot: 'box'|'part'
+  q:'',lotFilter:'open',
+  entry:'',kpSign:1,pickBox:null,tagProp:null,
+  dmg:{qty:'',note:'',photo:null},closeNotes:{},
+  draft:LS.get('rcv_draft',null),photos:[],
+  lastAction:null,                   // {ids:[...],label}
+  dirty:false,online:navigator.onLine,dbReady:null
+};
+
+/* ============ data layer ============ */
+let sb=null;
+const C={receipts:[],lines:{},events:{},notes:{},loaded:{},weekEvents:[]};
+const Q={ops:LS.get('rcv_queue',[]),busy:false};
+function saveQ(){LS.set('rcv_queue',Q.ops)}
+
+function makeClient(){
+  sb=supabase.createClient(CFG.url,CFG.key,{global:{headers:S.me?{'x-site-key':S.me.pin}:{}},auth:{persistSession:false},realtime:{params:{eventsPerSecond:20}}});
+}
+async function checkPin(pin){
+  const c=supabase.createClient(CFG.url,CFG.key,{global:{headers:{'x-site-key':pin}},auth:{persistSession:false}});
+  const {data,error}=await c.rpc('check_site_key');
+  if(error)throw error;return data===true;
+}
+async function loadReceipts(){
+  const {data,error}=await sb.from('receipts').select('*').order('created_at',{ascending:false}).limit(200);
+  if(error){if(/relation|does not exist|schema cache/i.test(error.message||''))S.dbReady=false;throw error}
+  S.dbReady=true;C.receipts=data;
+  const open=data.filter(r=>r.status!=='closed').map(r=>r.id);
+  if(S.rid&&!open.includes(S.rid))open.push(S.rid);
+  await loadDetails(open);
+}
+async function loadDetails(ids){
+  ids=ids.filter(Boolean);if(!ids.length)return;
+  const [l,e,n]=await Promise.all([
+    sb.from('receipt_lines').select('*').in('receipt_id',ids).order('line_no').limit(5000),
+    sb.from('count_events').select('*').in('receipt_id',ids).order('created_at',{ascending:false}).limit(10000),
+    sb.from('part_notes').select('*').in('receipt_id',ids)
+  ]);
+  for(const id of ids){C.lines[id]=[];C.events[id]=[];C.notes[id]={};C.loaded[id]=true}
+  (l.data||[]).forEach(x=>C.lines[x.receipt_id].push(x));
+  (e.data||[]).forEach(x=>C.events[x.receipt_id].push(x));
+  (n.data||[]).forEach(x=>C.notes[x.receipt_id][norm(x.part_no)]=x);
+  applyQueueToCache();
+}
+async function loadWeek(){
+  const since=new Date(Date.now()-7*864e5);since.setHours(0,0,0,0);
+  const {data}=await sb.from('count_events').select('id,receipt_id,part_no,box,qty,kind,counted_by,created_at,voided').gte('created_at',since.toISOString()).order('created_at',{ascending:false}).limit(5000);
+  C.weekEvents=data||[];
+}
+function upsertLocal(table,row){
+  if(table==='receipts'){const i=C.receipts.findIndex(r=>r.id===row.id);if(i>=0)C.receipts[i]={...C.receipts[i],...row};else C.receipts.unshift(row);C.receipts.sort((a,b)=>String(b.created_at).localeCompare(a.created_at));return}
+  const rid=row.receipt_id;if(!rid)return;
+  if(table==='part_notes'){(C.notes[rid]=C.notes[rid]||{})[norm(row.part_no)]={...(C.notes[rid]||{})[norm(row.part_no)],...row};return}
+  const store=table==='receipt_lines'?C.lines:C.events;const arr=store[rid]=store[rid]||[];
+  const i=arr.findIndex(x=>x.id===row.id);if(i>=0)arr[i]={...arr[i],...row};else{if(table==='count_events')arr.unshift(row);else arr.push(row)}
+  if(table==='count_events'){const w=C.weekEvents.findIndex(x=>x.id===row.id);if(w>=0)C.weekEvents[w]={...C.weekEvents[w],...row};else C.weekEvents.unshift(row)}
+}
+function removeLocal(table,row){
+  if(table==='receipt_lines'){for(const k in C.lines)C.lines[k]=C.lines[k].filter(x=>x.id!==row.id)}
+}
+function applyQueueToCache(){for(const op of Q.ops)applyOpLocal(op,true)}
+function applyOpLocal(op,pending){
+  if(op.type==='delete'){removeLocal(op.table,op.row);return}
+  const rows=Array.isArray(op.row)?op.row:[op.row];
+  for(const r of rows){const base=op.type==='update'?findRow(op.table,r):null;if(op.type==='update'&&!base)continue;upsertLocal(op.table,{...(base||{}),...r,_pending:pending})}
+}
+function findRow(table,r){
+  if(table==='receipts')return C.receipts.find(x=>x.id===r.id);
+  if(table==='count_events'){for(const k in C.events){const f=C.events[k].find(x=>x.id===r.id);if(f)return f}}
+  return null;
+}
+/* every write: show it at once, queue it, send it when the network allows */
+function write(table,type,row,match){
+  const op={id:uuid(),table,type,row,match};
+  applyOpLocal(op,true);Q.ops.push(op);saveQ();refresh();flush();return op;
+}
+async function sendOp(op){
+  const t=sb.from(op.table);let r;
+  if(op.type==='insert')r=await t.upsert(op.row,{onConflict:op.table==='part_notes'?'receipt_id,part_no':'id',ignoreDuplicates:op.table!=='part_notes'});
+  else if(op.type==='upsert')r=await t.upsert(op.row,{onConflict:op.table==='part_notes'?'receipt_id,part_no':'id'});
+  else if(op.type==='update'){const {id,...rest}=op.row;r=await t.update(rest).eq('id',id)}
+  else if(op.type==='delete')r=await t.delete().eq('id',op.row.id);
+  return r;
+}
+async function flush(){
+  if(Q.busy||!sb||!S.me)return;Q.busy=true;
+  try{
+    while(Q.ops.length){
+      const op=Q.ops[0];let r;
+      try{r=await sendOp(op)}catch(e){S.online=false;break}
+      if(r&&r.error){
+        const code=r.error.code||'';const msg=r.error.message||'';
+        if(code==='42501'||/row-level security/i.test(msg)){Q.ops.shift();saveQ();toast('รหัสหน้างานไม่ถูกต้อง หรือถูกเปลี่ยน กรุณาเข้าสู่ระบบใหม่',4500);continue}
+        if(/fetch|network|Failed|timeout/i.test(msg)||!navigator.onLine){S.online=false;break}
+        Q.ops.shift();saveQ();console.warn('drop op',op,r.error);toast('บันทึกบางรายการไม่สำเร็จ: '+msg.slice(0,80),4500);continue
+      }
+      S.online=true;Q.ops.shift();saveQ();
+      const rows=Array.isArray(op.row)?op.row:[op.row];
+      for(const x of rows){const f=op.table==='receipts'?C.receipts.find(y=>y.id===x.id):findRow(op.table,x);if(f)delete f._pending}
+    }
+  }finally{Q.busy=false;renderTop()}
+}
+setInterval(()=>{if(Q.ops.length)flush()},6000);
+addEventListener('online',()=>{S.online=true;flush();resync()});
+addEventListener('offline',()=>{S.online=false;renderTop()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.me){flush();resync()}});
+
+let chan=null,resyncT=null;
+function subscribe(){
+  if(chan)sb.removeChannel(chan);
+  chan=sb.channel('rcv-live');
+  for(const table of ['receipts','receipt_lines','count_events','part_notes']){
+    chan.on('postgres_changes',{event:'*',schema:'public',table},p=>{
+      if(p.eventType==='DELETE'){removeLocal(table,p.old||{})}
+      else{
+        const row=p.new;upsertLocal(table,row);
+        if(table==='receipts'&&row.status!=='closed'&&!C.loaded[row.id])loadDetails([row.id]).then(refresh);
+      }
+      refresh();
+    });
+  }
+  chan.subscribe(st=>{if(st==='SUBSCRIBED'){S.online=true;renderTop()}else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){S.online=false;renderTop()}});
+}
+function resync(){clearTimeout(resyncT);resyncT=setTimeout(async()=>{try{await loadReceipts();refresh()}catch(e){}},400)}
+
+/* ============ rollups ============ */
+function rollup(rid){
+  const lines=C.lines[rid]||[],evs=C.events[rid]||[],notes=C.notes[rid]||{};
+  const parts=new Map(),boxes=new Map();
+  const getPart=(k,partNo,desc)=>{let p=parts.get(k);if(!p){p={key:k,partNo,desc:desc||'',expected:0,counted:0,damage:0,packs:[],boxes:[],ev:[]};parts.set(k,p)}return p};
+  const getBox=bk=>{let b=boxes.get(bk);if(!b){b={key:bk,items:new Map()};boxes.set(bk,b)}return b};
+  for(const l of lines){
+    const k=norm(l.part_no);if(!k)continue;const p=getPart(k,l.part_no,l.description);
+    p.expected+=Number(l.qty)||0;const pk=Number(l.packing)||0;if(pk&&!p.packs.includes(pk))p.packs.push(pk);
+    const bk=String(l.box||'').trim()||'—';if(!p.boxes.includes(bk))p.boxes.push(bk);
+    const b=getBox(bk);let it=b.items.get(k);if(!it){it={key:k,partNo:l.part_no,desc:l.description||'',expected:0,counted:0,packing:pk};b.items.set(k,it)}
+    it.expected+=Number(l.qty)||0;if(!it.packing&&pk)it.packing=pk;
+  }
+  const hasBoxes=lines.some(l=>String(l.box||'').trim());
+  for(const e of evs){
+    const k=norm(e.part_no);const p=getPart(k,e.part_no,'ไม่อยู่ในเอกสาร');if(!p.ev.length&&p.expected===0)p.unlisted=true;
+    p.ev.push(e);if(e.voided)continue;
+    if(e.kind==='damage'){p.damage+=Number(e.qty)||0;continue}
+    p.counted+=Number(e.qty)||0;
+    const bk=String(e.box||'').trim()||'—';const b=boxes.get(bk);
+    if(b){let it=b.items.get(k);if(!it){it={key:k,partNo:e.part_no,desc:'ไม่อยู่ในเอกสาร',expected:0,counted:0,packing:0,unlisted:true};b.items.set(k,it)}it.counted+=Number(e.qty)||0}
+  }
+  for(const p of parts.values()){
+    p.diff=p.counted-p.expected;p.note=notes[p.key]||null;
+    p.status=(p.counted===0&&!p.damage)?'todo':p.diff<0?'part':p.diff>0?'over':'ok';
+    if(p.status==='ok'&&p.damage)p.status='part';
+    if((p.diff!==0||p.damage)&&p.note&&p.note.note)p.status='noted';
+  }
+  const bl=[...boxes.values()].sort((a,b)=>boxSort(a.key,b.key));
+  for(const b of bl){
+    const its=[...b.items.values()];b.list=its;
+    b.expected=its.reduce((a,i)=>a+i.expected,0);b.counted=its.reduce((a,i)=>a+i.counted,0);
+    b.status=b.counted===0?'todo':its.some(i=>i.counted>i.expected)?'over':its.every(i=>i.counted===i.expected)?'ok':'part';
+  }
+  const pl=[...parts.values()];
+  const sum={parts:pl.length,okParts:pl.filter(p=>p.status==='ok').length,boxes:bl.length,okBoxes:bl.filter(b=>b.status==='ok').length,
+    expected:pl.reduce((a,p)=>a+p.expected,0),cap:pl.reduce((a,p)=>a+Math.min(p.counted,p.expected),0),
+    mismatch:pl.filter(p=>p.diff>0||p.damage>0).length,damage:pl.reduce((a,p)=>a+p.damage,0),
+    todo:pl.filter(p=>p.status==='todo').length};
+  sum.pct=sum.expected?Math.round(sum.cap/sum.expected*100):0;
+  return {parts:pl,boxes:bl,sum,hasBoxes};
+}
+const lot=id=>C.receipts.find(r=>r.id===id);
+
+/* ============ navigation ============ */
+function go(view,params={},replace){
+  Object.assign(S,{view},params);
+  if(view==='lot'){S.part=null;S.box=null}
+  const st={view:S.view,rid:S.rid,box:S.box,part:S.part};
+  try{replace?history.replaceState(st,''):history.pushState(st,'')}catch(e){}
+  closeSheet();S.tagProp=S.view==='part'?S.tagProp:null;
+  render();scrollTo(0,0);wake();
+}
+addEventListener('popstate',e=>{const st=e.state;if(!st)return;Object.assign(S,st);closeSheet();hideModal();render()});
+let wl=null;async function wake(){try{if(['lot','box','part'].includes(S.view)){if(!wl&&navigator.wakeLock)wl=await navigator.wakeLock.request('screen')}else if(wl){wl.release();wl=null}}catch(e){wl=null}}
+
+/* ============ rendering ============ */
+function renderTop(){
+  const t=$('#top');if(!S.me){t.innerHTML='';return}
+  const n=Q.ops.length;
+  const pill=!navigator.onLine||!S.online?`<span class="pill bad"><i></i>ออฟไลน์${n?' · รอส่ง '+n:''}</span>`:n?`<span class="pill warn"><i></i>กำลังส่ง ${n}</span>`:`<span class="pill ok"><i></i>ซิงก์แล้ว</span>`;
+  let title='ตรวจรับสินค้าขาเข้า',sub=S.me.name,back='';
+  const r=S.rid&&lot(S.rid);
+  if(S.view==='lot'&&r){title=r.name;sub=(r.status==='closed'?'ปิดล็อตแล้ว · ':'')+(r.supplier||'')+(r.model?' · '+r.model:'');back='home'}
+  else if(S.view==='box'&&r){title='ลัง '+(S.box==='—'?'ไม่ระบุ':S.box);sub=r.name;back='lot'}
+  else if(S.view==='part'&&r){title='นับรายการ';sub=r.name;back=S.box?'box':'lot'}
+  else if(S.view==='close'&&r){title='ปิดล็อต';sub=r.name;back='lot'}
+  else if(S.view==='new'){title='รับของใหม่';sub='ถ่ายรูปใบรายการสินค้า';back='home'}
+  else if(S.view==='dash'){title='แดชบอร์ด';sub='อัปเดตทันทีเมื่อมีคนนับ'}
+  t.innerHTML=`<div class="wrap">${back?`<button class="back" data-act="back" aria-label="กลับ">${I.back}</button>`:''}
+    <h1>${esc(title)}<span class="sub">${esc(sub)}</span></h1>${pill}
+    ${S.view==='home'||S.view==='dash'?`<button class="btn ghost" data-act="logout" style="min-height:48px;padding:0 8px" aria-label="ออกจากระบบ">${I.lock}</button>`:''}</div>`;
+}
+function render(){
+  renderTop();
+  const tabs=$('#tabs');tabs.hidden=!S.me||!['home','dash'].includes(S.view);
+  $('#tab-home').setAttribute('aria-current',String(S.view==='home'));$('#tab-dash').setAttribute('aria-current',String(S.view==='dash'));
+  const m=$('#main'),a=$('#actions');
+  if(!S.me){m.innerHTML=loginHTML();a.innerHTML='';return}
+  const V={home:homeView,lot:lotView,box:boxView,part:partView,close:closeView,new:newView,dash:dashView}[S.view]||homeView;
+  const out=V();m.innerHTML=out.html;a.innerHTML=out.actions?`<div class="bar-actions ${tabs.hidden?'notabs':''}"><div class="wrap">${out.actions}</div></div>`:'';
+  if(out.after)out.after();
+}
+/* re-render on live data without stealing focus from a field being typed in */
+let refreshT=null;
+function refresh(){
+  clearTimeout(refreshT);refreshT=setTimeout(()=>{
+    const a=document.activeElement;
+    if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&a.id!=='q'){S.dirty=true;renderTop();return}
+    if(S.view==='new'){renderTop();return}
+    if(S.view==='lot'&&a&&a.id==='q'){renderTop();const el=$('#plist');if(el)el.innerHTML=partListHTML(rollup(S.rid));return}
+    render();
+  },60);
+}
+document.addEventListener('focusout',()=>setTimeout(()=>{if(S.dirty){S.dirty=false;refresh()}},50));
+
+function banner(){
+  if(S.dbReady===false)return `<div class="banner bad">ฐานข้อมูลยังไม่ได้สร้างตาราง ต้องรันไฟล์ SQL ใน Supabase ก่อน (ดูคู่มือใน README)</div>`;
+  return '';
+}
+
+/* ---- login ---- */
+let pinEntry='',nameEntry=LS.get('rcv_lastname','');
+function loginHTML(){
+  return `<div class="login">
+    <div><div class="label">UAM · Factory 1</div><h1>ตรวจรับสินค้าขาเข้า</h1><p class="muted" style="margin:6px 0 0">ใส่ชื่อของคุณและรหัสหน้างาน 6 หลัก ทำครั้งเดียวต่อเครื่อง</p></div>
+    <label class="field"><span>ชื่อผู้ตรวจนับ</span><input class="inp" id="lname" value="${esc(nameEntry)}" placeholder="เช่น ซ้อน" autocomplete="name"></label>
+    <div class="field"><span>รหัสหน้างาน</span><div class="pin">${[0,1,2,3,4,5].map(i=>`<span class="${i===pinEntry.length?'on':''}">${pinEntry[i]?'•':''}</span>`).join('')}</div></div>
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-act="pin" data-k="${n}">${n}</button>`).join('')}<button data-act="pin" data-k="c">ล้าง</button><button data-act="pin" data-k="0">0</button><button data-act="pin" data-k="bk" aria-label="ลบ">⌫</button></div>
+    <button class="btn primary huge wide" data-act="login" id="loginBtn">เข้าใช้งาน</button>
+    <p class="muted" style="font-size:.85rem;margin:0">ไม่มีรหัส ขอได้จากหัวหน้างานตรวจรับ</p></div>`;
+}
+async function doLogin(){
+  const name=($('#lname')?.value||'').trim();nameEntry=name;
+  if(!name){toast('ใส่ชื่อก่อน');$('#lname')?.focus();return}
+  if(pinEntry.length!==6){toast('ใส่รหัสให้ครบ 6 หลัก');return}
+  const b=$('#loginBtn');b.disabled=true;b.textContent='กำลังตรวจสอบ…';
+  try{
+    const ok=await checkPin(pinEntry);
+    if(!ok){toast('รหัสหน้างานไม่ถูกต้อง');pinEntry='';render();return}
+    S.me={name,pin:pinEntry};LS.set('rcv_me',S.me);LS.set('rcv_lastname',name);pinEntry='';
+    await start();
+  }catch(e){
+    const m=String(e&&e.message||e);
+    toast(/check_site_key|function|schema cache/i.test(m)?'ฐานข้อมูลยังไม่พร้อม (ยังไม่ได้รันไฟล์ SQL)':'เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ต',4500);
+    b.disabled=false;b.textContent='เข้าใช้งาน';
+  }
+}
+
+/* ---- home ---- */
+function homeView(){
+  const all=C.receipts;const open=all.filter(r=>r.status!=='closed'),closed=all.filter(r=>r.status==='closed');
+  const list=S.lotFilter==='open'?open:closed;
+  let h=banner()+`<div class="h-row"><h2>ล็อตรับของ</h2>
+    <div class="chips"><button class="chip" aria-pressed="${S.lotFilter==='open'}" data-act="lotFilter" data-v="open">กำลังตรวจ ${open.length}</button><button class="chip" aria-pressed="${S.lotFilter==='closed'}" data-act="lotFilter" data-v="closed">ปิดแล้ว ${closed.length}</button></div></div>`;
+  if(!list.length){
+    h+=`<div class="card empty"><h3>${S.lotFilter==='open'?'ยังไม่มีล็อตที่กำลังตรวจ':'ยังไม่มีล็อตที่ปิดแล้ว'}</h3><p>รถส่งของมาถึง กด “รับของใหม่” แล้วถ่ายรูปใบรายการสินค้า ระบบจะอ่านรายการและแบ่งตามลังให้</p></div>`;
+  } else {
+    h+='<div class="lots">'+list.map(r=>{
+      const {sum,hasBoxes}=C.loaded[r.id]?rollup(r.id):{sum:null};
+      return `<button class="card lot" data-act="openLot" data-id="${esc(r.id)}">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="st ${r.status==='closed'?'closed':'part'}">${r.status==='closed'?'ปิดล็อตแล้ว':'กำลังตรวจ'}</span>${r.source==='example'?'<span class="ex">ตัวอย่างจากรูปที่ส่งมา</span>':''}</div>
+        <h3>${esc(r.name)}</h3>
+        <div class="meta">${r.supplier?`<span>${esc(r.supplier)}</span>`:''}${r.doc_no?`<span>เลขที่ ${esc(r.doc_no)}</span>`:''}<span>${dt(r.created_at)}</span></div>
+        ${sum?`<div class="bar"><i style="width:${sum.pct}%;background:${sum.mismatch?'var(--warn)':'var(--ok)'}"></i></div>
+        <div class="nums"><span>${hasBoxes?`ลังครบ <b class="num">${sum.okBoxes}/${sum.boxes}</b>`:`รายการครบ <b class="num">${sum.okParts}/${sum.parts}</b>`}</span><span>${sum.mismatch?`<b class="diff-neg">เกิน/เสีย ${sum.mismatch}</b>`:`นับแล้ว ${sum.pct}%`}</span></div>`:'<div class="muted">แตะเพื่อเปิด</div>'}
+      </button>`}).join('')+'</div>';
+  }
+  return {html:h,actions:`<button class="btn primary huge" data-act="go" data-v="new">${I.plus}รับของใหม่</button>`};
+}
+
+/* ---- lot ---- */
+function lotMode(rid,hasBoxes){return S.mode[rid]||(hasBoxes?'box':'part')}
+function lotView(){
+  const r=lot(S.rid);if(!r)return{html:`<div class="card empty"><h3>ไม่พบล็อตนี้</h3></div>`};
+  if(!C.loaded[r.id]){loadDetails([r.id]).then(refresh);return{html:`<div class="reading"><div class="spin"></div>กำลังโหลด…</div>`}}
+  const R=rollup(r.id),s=R.sum,mode=lotMode(r.id,R.hasBoxes),closed=r.status==='closed';
+  let h=banner()+(closed?`<div class="banner info">ล็อตนี้ปิดแล้วเมื่อ ${dt(r.closed_at)} โดย ${esc(r.closed_by||'-')} ดูได้อย่างเดียว</div>`:'')+
+   `<div class="summary">
+     ${R.hasBoxes?`<div><b>${s.okBoxes}<small class="muted" style="font-size:1rem">/${s.boxes}</small></b><span>ลังที่ครบ</span></div>`:`<div><b>${s.okParts}<small class="muted" style="font-size:1rem">/${s.parts}</small></b><span>รายการที่ครบ</span></div>`}
+     <div><b>${s.pct}%</b><span>${fmt(s.cap)} / ${fmt(s.expected)} ชิ้น</span></div>
+     <div><b class="${s.mismatch?'diff-neg':''}">${s.mismatch}</b><span>เกิน / เสียหาย</span></div></div>`;
+  if(R.hasBoxes)h+=`<div class="seg" role="group" aria-label="วิธีนับ"><button aria-pressed="${mode==='box'}" data-act="mode" data-v="box">นับตามลัง</button><button aria-pressed="${mode==='part'}" data-act="mode" data-v="part">ค้นหาตามรหัส</button></div>`;
+  if(mode==='box'){
+    h+=`<div class="boxes">${R.boxes.map(b=>`<button class="box" data-st="${b.status}" data-act="openBox" data-b="${esc(b.key)}" aria-label="ลัง ${esc(b.key)}">
+        ${b.status==='ok'?`<span class="chk">${I.check}</span>`:''}<span class="t">ลัง</span><span class="n">${b.key==='—'?'?':esc(b.key)}</span>
+        <span class="s">${b.status==='todo'?b.list.length+' รายการ':b.status==='ok'?'ครบ':b.status==='over'?'เกิน':Math.round(Math.min(b.counted,b.expected)/Math.max(1,b.expected)*100)+'%'}</span></button>`).join('')}</div>
+      <div class="legend"><span><i style="border-color:var(--line)"></i>ยังไม่เปิด</span><span><i style="border-color:var(--accent);background:var(--accent-soft)"></i>นับไม่ครบ</span><span><i style="border-color:var(--ok);background:var(--ok-soft)"></i>ครบตามเอกสาร</span><span><i style="border-color:var(--warn);background:var(--warn-soft)"></i>เกิน</span></div>`;
+  } else {
+    h+=`<label class="search"><span hidden>ค้นหา</span>${I.search}<input class="inp" id="q" value="${esc(S.q)}" placeholder="พิมพ์เลขท้ายรหัส เช่น 566" inputmode="search" autocomplete="off"></label><div class="plist" id="plist">${partListHTML(R)}</div>`;
+  }
+  const acts=closed?`<button class="btn" data-act="reopen">เปิดล็อตอีกครั้ง</button><button class="btn" data-act="csv">${I.dl}CSV</button>`
+    :`<button class="btn primary" data-act="scan">${I.scan}สแกนป้าย</button><button class="btn" data-act="go" data-v="close">ปิดล็อต</button>`;
+  return {html:h,actions:acts};
+}
+function partListHTML(R){
+  const q=S.q.trim(),qn=norm(q),qd=digits(q),ql=q.toLowerCase();
+  const ord={part:0,over:1,todo:2,noted:3,ok:4};
+  let list=R.parts.filter(p=>!q||p.key.includes(qn)||(qd&&digits(p.key).includes(qd))||p.desc.toLowerCase().includes(ql));
+  list.sort((a,b)=>ord[a.status]-ord[b.status]||a.key.localeCompare(b.key));
+  if(!list.length)return `<div class="card empty"><h3>ไม่พบรหัสนี้</h3><p>ลองพิมพ์ตัวเลขน้อยลง หรือกดสแกนป้ายกล่อง</p></div>`;
+  return list.map(p=>`<button class="card prow" data-st="${p.status}" data-act="openPart" data-k="${esc(p.key)}">
+    <span style="min-width:0;display:flex;flex-direction:column;gap:5px"><span><span class="pcode">${esc(p.partNo)}</span> <span class="st ${p.status}">${STL[p.status]}</span></span><span class="d">${esc(p.desc)}</span></span>
+    <span class="q"><b>${fmt(p.counted)}</b><small> / ${fmt(p.expected)}</small>${p.counted?`<div class="${p.diff<0?'diff-neg':p.diff>0?'diff-pos':'diff-zero'}" style="font-weight:700;font-size:.85rem">${p.diff===0?'ครบ':sgn(p.diff)}</div>`:''}</span></button>`).join('');
+}
+
+/* ---- box ---- */
+function boxView(){
+  const r=lot(S.rid);if(!r||!C.loaded[r.id])return lotView();
+  const R=rollup(r.id),b=R.boxes.find(x=>x.key===S.box);if(!b)return{html:`<div class="card empty"><h3>ไม่พบลังนี้</h3></div>`};
+  const closed=r.status==='closed',idx=R.boxes.indexOf(b),next=R.boxes.slice(idx+1).find(x=>x.status!=='ok')||R.boxes.find(x=>x.status!=='ok'&&x!==b);
+  const remain=b.list.filter(i=>i.counted<i.expected);
+  let h=`<div class="boxhead"><div class="big">${b.key==='—'?'?':esc(b.key)}</div><div><div class="label">ลังที่</div><div class="muted">${b.list.length} รายการ · ${fmt(b.expected)} ชิ้น</div></div><span style="flex:1"></span><span class="st ${b.status}">${b.status==='todo'?'ยังไม่เปิด':STL[b.status]}</span></div>`;
+  if(b.status==='ok')h+=`<div class="banner ok">${I.check.replace('<svg','<svg style="width:22px;height:22px;flex:none"')}<div><b>ลังนี้ครบตามเอกสารแล้ว</b>${next?`<br>ไปลัง ${esc(next.key)} ต่อได้เลย`:'<br>ทุกลังครบแล้ว กดปิดล็อตได้'}</div></div>`;
+  if(!closed&&remain.length)h+=`<button class="btn good huge wide" data-act="boxAll" style="margin-bottom:14px">${I.check}ลังนี้ครบตามเอกสาร</button>`;
+  h+=`<div class="label" style="margin:4px 0 8px">หรือนับทีละรายการ</div><div class="lines">${b.list.map(i=>{
+    const st=i.counted===0?'todo':i.counted<i.expected?'part':i.counted>i.expected?'over':'ok';
+    const rem=i.expected-i.counted;const step=rem>0?(i.packing&&i.packing<=rem?i.packing:rem):(i.packing||0);
+    return `<div class="card bline" data-st="${st}">
+      <button class="info" data-act="openPart" data-k="${esc(i.key)}" data-b="${esc(b.key)}"><span><span class="pcode">${esc(i.partNo)}</span></span><span class="d">${esc(i.desc)}</span>
+        <span class="c">นับ <b>${fmt(i.counted)}</b> / ${fmt(i.expected)} ${st==='over'?`<b class="diff-pos">เกิน ${fmt(-rem)}</b>`:''}</span></button>
+      ${closed?'':st==='ok'?`<button class="plus done" data-act="openPart" data-k="${esc(i.key)}" data-b="${esc(b.key)}">${I.check.replace('<svg','<svg style="width:22px;height:22px;vertical-align:-5px"')} ครบ</button>`
+        :step>0?`<button class="plus" data-act="addLine" data-k="${esc(i.key)}" data-q="${step}">+${fmt(step)}</button>`:`<button class="plus" data-act="openPart" data-k="${esc(i.key)}" data-b="${esc(b.key)}">แก้</button>`}
+    </div>`}).join('')}</div>`;
+  const acts=[];
+  if(S.lastAction&&!closed)acts.push(`<button class="btn" data-act="undo">${I.undo}ย้อนกลับ</button>`);
+  if(next)acts.push(`<button class="btn ${b.status==='ok'?'primary':''}" data-act="openBox" data-b="${esc(next.key)}" data-replace="1">ลัง ${esc(next.key)} ${I.next}</button>`);
+  else acts.push(`<button class="btn ${b.status==='ok'?'primary':''}" data-act="back">กลับหน้าลัง</button>`);
+  return {html:h,actions:acts.join('')};
+}
+
+/* ---- part ---- */
+function partView(){
+  const r=lot(S.rid);if(!r||!C.loaded[r.id])return lotView();
+  const R=rollup(r.id),p=R.parts.find(x=>x.key===S.part);if(!p)return{html:`<div class="card empty"><h3>ไม่พบรายการ</h3></div>`};
+  const closed=r.status==='closed';
+  const boxes=p.boxes.filter(x=>x!=='—');
+  if(S.pickBox==null||(boxes.length&&!boxes.includes(S.pickBox)&&S.pickBox!==''))S.pickBox=S.box&&S.box!=='—'?S.box:(boxes[0]||'');
+  const recent=[];for(const e of p.ev){if(e.voided||e.kind==='damage')continue;const q=Number(e.qty);if(q>0&&!recent.includes(q))recent.push(q);if(recent.length>3)break}
+  const rem=p.expected-p.counted;
+  const main=p.packs.find(x=>x>0&&x<=Math.max(rem,x))||recent[0]||(rem>0?rem:0);
+  const extra=[...new Set([...p.packs,...recent,rem>0?rem:0])].filter(x=>x>0&&x!==main).slice(0,3);
+  const tp=S.tagProp&&S.tagProp.key===p.key?S.tagProp:null;
+  let h=`<div class="phead"><span class="code">${esc(p.partNo)}</span><span class="muted">${esc(p.desc)}</span></div>
+   <div class="trio"><div><span>ตามเอกสาร</span><b>${fmt(p.expected)}</b></div><div><span>นับได้</span><b>${fmt(p.counted)}</b></div>
+   <div><span>ส่วนต่าง</span><b class="${p.counted?(p.diff<0?'diff-neg':p.diff>0?'diff-pos':'diff-zero'):''}">${p.counted||p.expected===0?(p.diff===0?'ครบ':sgn(p.diff)):'—'}</b></div></div>`;
+  if(tp&&!closed)h+=`<div class="tagread"><div class="label" style="font-family:var(--f-body)">อ่านจากป้ายกล่อง</div><div>PART CODE : <b>${esc(tp.code||'-')}</b></div><div>QUANTITY&nbsp; : <b>${fmt(tp.qty)}</b> Pcs</div>${tp.note?`<div style="font-family:var(--f-body);font-size:.85rem;color:var(--warn)">${esc(tp.note)}</div>`:''}
+     <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap"><button class="btn primary" data-act="tagOk">ยืนยัน +${fmt(tp.qty)}</button><button class="btn" data-act="tagNo">ไม่ใช้</button></div></div>`;
+  if(!closed){
+    if(boxes.length>1)h+=`<div class="field" style="margin-bottom:14px"><span>กำลังเปิดลังที่</span><div class="chips">${boxes.map(x=>`<button class="chip" aria-pressed="${S.pickBox===x}" data-act="pickBox" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>`;
+    h+=`<div class="stack">
+      ${main?`<button class="btn primary huge wide" data-act="add" data-q="${main}" style="font-size:1.6rem">+${fmt(main)}${p.packs.includes(main)?'<span style="font-size:.9rem;font-weight:500;opacity:.85">ตามแพ็ก</span>':''}</button>`:''}
+      <div style="display:grid;grid-template-columns:repeat(${Math.min(extra.length+1,4)},minmax(0,1fr));gap:10px">${extra.map(x=>`<button class="btn" data-act="add" data-q="${x}">+${fmt(x)}</button>`).join('')}<button class="btn" data-act="keypad">จำนวนอื่น</button></div>
+      ${S.lastAction?`<button class="btn" data-act="undo">${I.undo}ย้อนกลับ ${esc(S.lastAction.label)}</button>`:''}
+    </div>`;
+  }
+  h+=`<details class="more" ${S.moreOpen?'open':''} id="more"><summary>ของเสียหาย และประวัติการนับ <span class="muted" style="font-weight:500">${p.ev.length} ครั้ง${p.damage?` · เสีย ${fmt(p.damage)}`:''}</span></summary>
+    ${closed?'':`<div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:12px"><b>บันทึกของเสียหาย</b>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:10px"><label class="field"><span>จำนวน</span><input class="inp num" id="dq" inputmode="numeric" data-bind="dmg.qty" value="${esc(S.dmg.qty)}"></label>
+      <label class="field"><span>อาการ</span><input class="inp" id="dn" data-bind="dmg.note" value="${esc(S.dmg.note)}" placeholder="เช่น กล่องเปียก ซี่ลวดงอ"></label></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="photo">${I.cam}${S.dmg.photo?'เปลี่ยนรูป':'ถ่ายรูป'}</button>${S.dmg.photo?`<img src="${S.dmg.photo}" alt="รูปหลักฐาน" style="width:60px;height:60px;object-fit:cover;border-radius:10px">`:''}<button class="btn danger" data-act="saveDmg">บันทึกของเสียหาย</button></div></div>`}
+    <div class="hist">${p.ev.length?p.ev.slice(0,40).map(e=>`<div class="hrow ${e.voided?'void':''}"><span class="q ${e.kind==='damage'?'diff-neg':''}">${e.kind==='damage'?'เสีย '+fmt(e.qty):sgn(e.qty)}</span>
+      <span style="min-width:0">${esc(e.counted_by||'-')}${e.box?' · ลัง '+esc(e.box):''}${e.source==='tag'?' · จากป้าย':e.source==='box'?' · ครบทั้งลัง':''}${e.note?`<div class="muted" style="font-size:.85rem">${esc(e.note)}</div>`:''}${e._pending?'<div style="font-size:.8rem;color:var(--warn)">รอส่ง</div>':''}</span>
+      <span class="muted num" style="text-align:right;font-size:.85rem">${tm(e.created_at)}${e.photo?`<br><img src="${e.photo}" alt="รูปของเสียหาย">`:''}</span></div>`).join(''):'<div class="muted" style="padding:10px 0">ยังไม่มีการนับ</div>'}</div></details>`;
+  const acts=S.box?`<button class="btn wide" data-act="back">${I.back}กลับไปลัง ${esc(S.box==='—'?'?':S.box)}</button>`:'';
+  return {html:h,actions:acts};
+}
+
+/* ---- keypad sheet ---- */
+function openKeypad(){S.entry='';S.kpSign=1;renderSheet()}
+function renderSheet(){
+  $('#sheet').innerHTML=`<div class="sheet-bg" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="ใส่จำนวน">
+   <div style="display:flex;justify-content:space-between;align-items:center"><h3>ใส่จำนวน</h3><button class="btn ghost" data-act="closeSheet">ปิด</button></div>
+   <div class="disp"><span class="muted">${S.kpSign<0?'หักออก':'เพิ่ม'}</span><b>${S.kpSign<0?'−':'+'}${S.entry?fmt(S.entry):'0'}</b></div>
+   <div class="kp">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-act="kp" data-k="${n}">${n}</button>`).join('')}<button data-act="kp" data-k="00">00</button><button data-act="kp" data-k="0">0</button><button data-act="kp" data-k="bk" aria-label="ลบ">⌫</button></div>
+   <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px"><button class="btn" data-act="kpSign">${S.kpSign<0?'เปลี่ยนเป็นเพิ่ม':'หักออก'}</button><button class="btn ${S.kpSign<0?'danger':'primary'} huge" data-act="kpGo" ${S.entry?'':'disabled'}>${S.kpSign<0?'หัก':'เพิ่ม'} ${S.entry?fmt(S.entry):''}</button></div></div>`;
+}
+function closeSheet(){$('#sheet').innerHTML=''}
+
+/* ---- close lot ---- */
+function closeView(){
+  const r=lot(S.rid);if(!r||!C.loaded[r.id])return lotView();
+  const R=rollup(r.id),s=R.sum;
+  const mis=R.parts.filter(p=>p.diff!==0||p.damage);
+  let h=`<div class="summary"><div><b>${s.okParts}/${s.parts}</b><span>รายการครบ</span></div><div><b>${s.pct}%</b><span>นับได้ตามเอกสาร</span></div><div><b class="${mis.length?'diff-neg':''}">${mis.length}</b><span>ต้องใส่เหตุผล</span></div></div>`;
+  if(!mis.length)h+=`<div class="banner ok">${I.check.replace('<svg','<svg style="width:22px;height:22px;flex:none"')}<div><b>ทุกรายการครบตามเอกสาร</b><br>กดยืนยันเพื่อปิดล็อตได้เลย</div></div>`;
+  else h+=`<p class="muted" style="margin:0 0 12px">รายการต่อไปนี้ยอดไม่ตรงกับเอกสาร ใส่เหตุผลทุกรายการก่อนปิดล็อต</p><div class="stack">${mis.map(p=>{
+    const v=S.closeNotes[p.key]??(p.note?p.note.note:'');
+    return `<div class="card mis"><div class="top-line"><span class="pcode">${esc(p.partNo)}</span><span class="num" style="font-weight:700">${fmt(p.counted)} / ${fmt(p.expected)} <span class="${p.diff<0?'diff-neg':'diff-pos'}">${p.diff===0?'':sgn(p.diff)}</span>${p.damage?` <span class="diff-neg">เสีย ${fmt(p.damage)}</span>`:''}</span></div>
+      <div class="muted" style="font-size:.85rem">${esc(p.desc)}</div>
+      <label class="field"><span>เหตุผล</span><textarea class="inp" data-bind="close.${esc(p.key)}" placeholder="${p.diff<0?'เช่น ขาด 1 กล่อง แจ้งผู้ส่งแล้ว':p.diff>0?'เช่น ผู้ส่งแถมมา / นับซ้ำ':'เช่น ซี่ลวดงอ 3 เส้น แยกไว้แล้ว'}">${esc(v)}</textarea></label></div>`}).join('')}</div>`;
+  if(s.todo&&mis.length)h+=`<div class="banner warn" style="margin-top:14px">มี ${s.todo} รายการที่ยังไม่ได้นับเลย ถ้าของไม่มาจริง ใส่เหตุผลว่า “ไม่ได้รับ”</div>`;
+  return {html:h,actions:`<button class="btn good huge" data-act="closeLot">${I.check}ยืนยันปิดล็อต</button>`};
+}
+
+/* ---- new lot ---- */
+function newView(){
+  const d=S.draft,stage=d?d.stage:'photos';
+  const st=(k,l)=>`<span class="step ${stage===k?'on':''}">${l}</span>`;
+  let h=`<div class="steps">${st('photos','1 ถ่ายรูปเอกสาร')}${st('reading','2 ระบบอ่าน')}${st('review','3 ตรวจทาน')}</div>`;
+  if(stage==='photos'){
+    h+=`<div class="drop" id="drop">${S.photos.length?`<div class="thumbs">${S.photos.map((p,i)=>`<div class="thumb"><img src="${p.url}" alt="หน้า ${i+1}"><button data-act="rmPhoto" data-i="${i}" aria-label="ลบ">×</button></div>`).join('')}</div>`:`<div class="muted">${I.cam.replace('<svg','<svg style="width:48px;height:48px"')}</div>`}
+      <div><b style="font-size:1.1rem">${S.photos.length?S.photos.length+' หน้า':'ถ่ายรูปใบรายการสินค้า'}</b><div class="muted">ถ่ายให้เห็นทั้งตาราง แนวนอนก็ได้ หลายหน้าก็ได้</div></div>
+      <button class="btn" data-act="pickDoc">${I.cam}${S.photos.length?'เพิ่มหน้า':'ถ่าย / เลือกรูป'}</button></div>`;
+    return {html:h,actions:`<button class="btn" data-act="manual">กรอกเอง</button><button class="btn primary" data-act="readDoc" ${S.photos.length?'':'disabled'}>ให้ระบบอ่าน</button>`};
+  }
+  if(stage==='reading')return {html:h+`<div class="card reading"><div class="spin"></div><h3>กำลังอ่านใบรายการ ${S.photos.length} หน้า</h3><p class="muted" style="margin:0">ใช้เวลาประมาณ 10–40 วินาที</p></div>`};
+  const lines=d.lines,low=lines.filter(l=>l.conf!=null&&l.conf<.8).length;
+  const parts=new Set(lines.map(l=>norm(l.partNo)).filter(Boolean)).size,boxes=new Set(lines.map(l=>String(l.box||'').trim()).filter(Boolean)).size;
+  h+=`${low?`<div class="banner warn"><div><b>${low} บรรทัดอ่านไม่ชัด</b> (สีเหลือง) ตรวจกับเอกสารจริงก่อนบันทึก</div></div>`:''}
+   <div class="card" style="margin-bottom:14px"><div class="hgrid">
+     <label class="field"><span>ชื่อล็อต</span><input class="inp" data-bind="head.name" value="${esc(d.head.name)}" placeholder="เช่น K1G 2538 WHEELS"></label>
+     <label class="field"><span>ผู้ส่ง / ลูกค้า</span><input class="inp" data-bind="head.supplier" value="${esc(d.head.supplier)}"></label>
+     <label class="field"><span>รุ่น</span><input class="inp" data-bind="head.model" value="${esc(d.head.model)}"></label>
+     <label class="field"><span>เลขที่เอกสาร</span><input class="inp" data-bind="head.docNo" value="${esc(d.head.docNo)}"></label></div></div>
+   <div class="h-row" style="margin-bottom:10px"><h2 style="font-size:1.2rem">รายการในเอกสาร</h2><span class="muted num" id="lsum">${lines.length} บรรทัด · ${parts} รหัส · ${boxes} ลัง</span></div>
+   <div class="stack">${lines.map((l,i)=>`<div class="card lrow ${l.conf!=null&&l.conf<.8?'low':''}">${l.conf!=null&&l.conf<.8?'<span class="flag">ตรวจซ้ำ</span>':''}
+     <label class="field f-part"><span>รหัสชิ้นส่วน</span><input class="inp mono" data-bind="line.${i}.partNo" value="${esc(l.partNo)}" autocapitalize="characters"></label>
+     <label class="field"><span>ลังที่</span><input class="inp num" data-bind="line.${i}.box" value="${esc(l.box)}" inputmode="numeric"></label>
+     <label class="field"><span>จำนวน</span><input class="inp num" data-bind="line.${i}.qty" value="${esc(l.qty)}" inputmode="numeric"></label>
+     <button class="del" data-act="rmLine" data-i="${i}" aria-label="ลบบรรทัด">${I.trash}</button>
+     <label class="field desc"><span>รายละเอียด</span><input class="inp" data-bind="line.${i}.desc" value="${esc(l.desc)}"></label></div>`).join('')}</div>
+   <button class="btn" data-act="addLine2" style="margin-top:12px">${I.plus}เพิ่มบรรทัด</button>`;
+  return {html:h,actions:`<button class="btn" data-act="discard">ทิ้งร่าง</button><button class="btn primary" data-act="saveLot">บันทึกและเริ่มนับ</button>`};
+}
+const blank=()=>({partNo:'',desc:'',box:'',packing:'',qty:'',conf:null});
+function saveDraft(){LS.set('rcv_draft',S.draft)}
+async function shrink(file,max=1600,q=.82){
+  const img=await new Promise((res,rej)=>{const u=URL.createObjectURL(file);const i=new Image();i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=rej;i.src=u});
+  const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');
+  c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  return c.toDataURL('image/jpeg',q);
+}
+async function callAI(mode,files,parts){
+  const images=[];for(const f of files){const d=await shrink(f,mode==='tag'?1200:1700);images.push({mime:'image/jpeg',data:d.split(',')[1]})}
+  const r=await fetch(CFG.url+'/functions/v1/read-doc',{method:'POST',headers:{'Content-Type':'application/json',apikey:CFG.key,'x-site-key':S.me.pin},body:JSON.stringify({mode,images,parts})});
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok||!j.ok){const e=new Error(j.error||('http_'+r.status));e.code=j.error;e.detail=j.detail;throw e}
+  return j.result;
+}
+function aiErr(e){const c=e&&e.code;return c==='no_gemini_key'?'ยังไม่ได้ใส่ Gemini API key ใน Supabase':c==='bad_site_key'?'รหัสหน้างานไม่ถูกต้อง':c==='gemini_error'?'Gemini ตอบกลับผิดพลาด: '+(e.detail||'').slice(0,80):!navigator.onLine?'ออฟไลน์อยู่ ใช้ระบบอ่านไม่ได้':'อ่านไม่สำเร็จ ลองถ่ายใหม่'}
+async function readDoc(){
+  const files=S.photos.slice(0,6).map(p=>p.file);
+  S.draft={stage:'reading',head:{name:'',supplier:'',model:'',docNo:'',docDate:''},lines:[],source:'ai'};render();
+  try{
+    const res=await callAI('doc',files);
+    const lines=(Array.isArray(res&&res.lines)?res.lines:[]).map(l=>({partNo:String(l.partNo||'').trim(),desc:String(l.desc||'').trim(),box:l.box==null?'':String(l.box).trim(),
+      packing:Number.isFinite(+l.packing)&&l.packing!==null?Math.round(+l.packing):'',qty:Number.isFinite(+l.qty)&&l.qty!==null?Math.round(+l.qty):'',conf:Number.isFinite(+l.confidence)?+l.confidence:null})).filter(l=>l.partNo||l.desc);
+    const hd={supplier:res.supplier||'',model:res.model||'',docNo:res.docNo||'',docDate:res.docDate||''};
+    hd.name=[res.model,res.title].filter(Boolean).join(' ')||('รับของ '+new Date().toLocaleDateString('th-TH'));
+    S.draft={stage:'review',head:hd,lines:lines.length?lines:[blank()],source:'ai'};saveDraft();
+    if(!lines.length)toast('ไม่พบตารางในรูป ลองถ่ายใหม่หรือกรอกเอง',4000);
+  }catch(e){S.draft=null;saveDraft();toast(aiErr(e),4500)}
+  render();
+}
+function saveLot(){
+  const d=S.draft;
+  const lines=d.lines.filter(l=>String(l.partNo).trim());
+  if(!lines.length){toast('ยังไม่มีรายการที่มีรหัสชิ้นส่วน');return}
+  const bad=lines.filter(l=>!(Number(l.qty)>0)).length;if(bad){toast(`มี ${bad} บรรทัดที่ยังไม่ใส่จำนวน`);return}
+  const id=uuid();
+  write('receipts','insert',{id,name:d.head.name||('รับของ '+new Date().toLocaleDateString('th-TH')),supplier:d.head.supplier||'',model:d.head.model||'',doc_no:d.head.docNo||'',doc_date:d.head.docDate||'',status:'open',source:d.source||'manual',created_at:now(),created_by:S.me.name});
+  write('receipt_lines','insert',lines.map((l,i)=>({id:uuid(),receipt_id:id,line_no:i+1,part_no:String(l.partNo).trim().toUpperCase(),description:String(l.desc||'').trim(),box:String(l.box||'').trim(),packing:Number(l.packing)||0,qty:Number(l.qty)||0})));
+  C.loaded[id]=true;
+  S.draft=null;saveDraft();S.photos.forEach(p=>URL.revokeObjectURL(p.url));S.photos=[];
+  toast('บันทึกล็อตแล้ว เริ่มนับได้');go('lot',{rid:id},true);
+}
+
+/* ---- dashboard ---- */
+function dashView(){
+  const open=C.receipts.filter(r=>r.status!=='closed');
+  const today=new Date().toDateString();
+  let parts=0,okP=0,boxes=0,okB=0;const mis=[];
+  const per=open.filter(r=>C.loaded[r.id]).map(r=>{const R=rollup(r.id);parts+=R.sum.parts;okP+=R.sum.okParts;boxes+=R.sum.boxes;okB+=R.sum.okBoxes;
+    R.parts.filter(p=>p.diff>0||p.damage>0).forEach(p=>mis.push({r,p}));return{r,R}});
+  const closedToday=C.receipts.filter(r=>r.status==='closed'&&r.closed_at&&new Date(r.closed_at).toDateString()===today).length;
+  const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);days.push({d,n:0})}
+  for(const e of C.weekEvents){if(e.voided||e.kind==='damage')continue;const t=new Date(e.created_at);t.setHours(0,0,0,0);const x=days.find(y=>y.d.getTime()===t.getTime());if(x)x.n++}
+  const mx=Math.max(1,...days.map(x=>x.n));
+  const rn=id=>(lot(id)||{}).name||'—';
+  const h=banner()+`<div class="kpis">
+    <div class="card kpi"><b>${open.length}</b><span>ล็อตที่กำลังตรวจ</span></div>
+    <div class="card kpi"><b>${boxes?okB+'/'+boxes:okP+'/'+parts}</b><span>${boxes?'ลังครบ':'รายการครบ'} (ล็อตที่เปิด)</span></div>
+    <div class="card kpi ${mis.length?'alert':''}"><b>${mis.length}</b><span>รายการเกิน / เสียหาย</span></div>
+    <div class="card kpi"><b>${closedToday}</b><span>ปิดล็อตวันนี้</span></div></div>
+   <div class="dgrid"><div class="stack" style="gap:16px">
+    <div class="card dcard"><h3>ความคืบหน้าแต่ละล็อต</h3>${per.length?per.map(({r,R})=>`<button class="lp" data-act="openLot" data-id="${esc(r.id)}"><b style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</b>
+      <span class="muted num">${R.hasBoxes?`ลัง ${R.sum.okBoxes}/${R.sum.boxes}`:`${R.sum.okParts}/${R.sum.parts}`} · ${R.sum.pct}%${R.sum.mismatch?` · <span class="diff-neg">เกิน/เสีย ${R.sum.mismatch}</span>`:''}</span>
+      <span class="bar"><i style="width:${R.sum.pct}%;background:${R.sum.mismatch?'var(--warn)':'var(--ok)'}"></i></span></button>`).join(''):'<div class="muted">ไม่มีล็อตที่กำลังตรวจ</div>'}</div>
+    <div class="card dcard"><h3>รายการเกินเอกสาร / เสียหาย</h3>${mis.length?`<div class="tw"><table class="t"><thead><tr><th>ล็อต</th><th>รหัส</th><th class="n">เอกสาร</th><th class="n">นับได้</th><th class="n">ต่าง</th></tr></thead><tbody>
+      ${mis.slice(0,50).map(({r,p})=>`<tr><td>${esc(r.name)}</td><td class="mono">${esc(p.partNo)}</td><td class="n">${fmt(p.expected)}</td><td class="n">${fmt(p.counted)}</td><td class="n ${p.diff<0?'diff-neg':'diff-pos'}">${p.diff?sgn(p.diff):'เสีย '+fmt(p.damage)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">ยังไม่พบรายการเกินหรือเสียหาย</div>'}</div>
+   </div><div class="stack" style="gap:16px">
+    <div class="card dcard"><h3>จำนวนครั้งที่นับ 7 วันล่าสุด</h3><div class="days">${days.map(x=>`<div class="day"><b>${x.n||''}</b><i style="height:${x.n/mx*85}%"></i><span>${x.d.toLocaleDateString('th-TH',{weekday:'short'})}</span></div>`).join('')}</div></div>
+    <div class="card dcard"><h3>กิจกรรมล่าสุด</h3><div class="feed">${C.weekEvents.slice(0,15).map(e=>`<div class="f"><span class="muted num">${tm(e.created_at)}</span><span style="min-width:0"><b>${esc(e.counted_by||'-')}</b> ${e.voided?'<s>':''}${e.kind==='damage'?`<span class="diff-neg">เสีย ${fmt(e.qty)}</span>`:sgn(e.qty)}${e.voided?'</s>':''} <span class="mono">${esc(e.part_no)}</span>
+      <div class="muted" style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(rn(e.receipt_id))}${e.box?' · ลัง '+esc(e.box):''}</div></span></div>`).join('')||'<div class="muted">ยังไม่มีการนับ</div>'}</div></div>
+   </div></div>`;
+  return {html:h};
+}
+
+/* ============ counting actions ============ */
+function addCounts(items,label,source){
+  const r=lot(S.rid);if(!r||r.status==='closed'){toast('ล็อตนี้ปิดแล้ว');return}
+  const rows=items.filter(x=>x.qty).map(x=>({id:uuid(),receipt_id:r.id,part_no:x.partNo,box:x.box||'',qty:Math.round(x.qty),kind:'count',source:source||'tap',note:x.note||'',counted_by:S.me.name,created_at:now(),voided:false}));
+  if(!rows.length)return;
+  write('count_events','insert',rows.length===1?rows[0]:rows);
+  S.lastAction={ids:rows.map(x=>x.id),label};buzz();
+}
+function partBox(p){const b=p.boxes.filter(x=>x!=='—');return b.length===1?b[0]:(S.pickBox||'')}
+function undo(){
+  const a=S.lastAction;if(!a)return;
+  a.ids.forEach(id=>write('count_events','update',{id,voided:true,voided_by:S.me.name,voided_at:now()}));
+  S.lastAction=null;toast('ย้อนกลับแล้ว');
+}
+
+/* ============ tag scan ============ */
+async function scanTag(file){
+  const r=lot(S.rid);if(!r)return;const R=rollup(r.id);
+  showModal(`<div class="reading" style="padding:20px"><div class="spin"></div><h3>กำลังอ่านป้ายกล่อง</h3></div>`);
+  try{
+    const res=await callAI('tag',[file],R.parts.map(p=>p.partNo));hideModal();
+    const code=String(res&&res.partCode||'').trim(),qty=Math.round(Number(res&&res.qty)||0);
+    const k=norm(code);let p=R.parts.find(x=>x.key===k),note='';
+    if(!p&&k){const base=k.split('/')[0];const c=R.parts.filter(x=>x.key.split('/')[0]===base);if(c.length===1){p=c[0];note=`รหัสบนป้าย (${code}) ต่อท้ายไม่ตรง ตรวจก่อนยืนยัน`}}
+    if(p){S.tagProp=qty?{key:p.key,code,qty,note}:null;if(!qty)toast('อ่านจำนวนบนป้ายไม่ได้ กดจำนวนเอง');go('part',{part:p.key,box:S.view==='box'?S.box:null,pickBox:null})}
+    else showModal(`<h3>ไม่พบรหัสนี้ในเอกสาร</h3><div class="tagread"><div>PART CODE : <b>${esc(code||'อ่านไม่ได้')}</b></div><div>QUANTITY&nbsp; : <b>${qty?fmt(qty):'-'}</b></div></div>
+      <p class="muted" style="margin:0">เลือกรายการที่ถูกต้อง หรือถ่ายใหม่ให้ป้ายชัดขึ้น</p>
+      <div class="pick">${R.parts.slice(0,80).map(x=>`<button data-act="pickTag" data-k="${esc(x.key)}" data-q="${qty}" data-c="${esc(code)}"><span class="mono">${esc(x.partNo)}</span><span class="muted" style="font-size:.85rem">${esc(x.desc.slice(0,26))}</span></button>`).join('')}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${code&&qty?`<button class="btn danger" data-act="unlisted" data-q="${qty}" data-c="${esc(code)}">บันทึกเป็นของนอกเอกสาร</button>`:''}<button class="btn" data-act="hideModal">ปิด</button></div>`);
+  }catch(e){hideModal();toast(aiErr(e),4500)}
+}
+function showModal(h){$('#modal').innerHTML=`<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true">${h}</div></div>`}
+function hideModal(){$('#modal').innerHTML=''}
+
+/* ============ export ============ */
+function csv(){
+  const r=lot(S.rid);if(!r)return;const R=rollup(r.id);
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const rows=[['รหัสชิ้นส่วน','รายละเอียด','ลัง','ตามเอกสาร','นับได้','ส่วนต่าง','เสียหาย','สถานะ','เหตุผล']].concat(R.parts.map(p=>[p.partNo,p.desc,p.boxes.join(' '),p.expected,p.counted,p.diff,p.damage,STL[p.status],p.note?p.note.note:'']));
+  const blob=new Blob(['﻿'+rows.map(x=>x.map(q).join(',')).join('\r\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`ตรวจรับ_${r.name.replace(/[^\w฀-๿-]+/g,'_')}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+/* ============ event wiring ============ */
+const A={
+  pin:d=>{const k=d.k;if(k==='bk')pinEntry=pinEntry.slice(0,-1);else if(k==='c')pinEntry='';else if(pinEntry.length<6)pinEntry+=k;nameEntry=$('#lname')?.value||nameEntry;render();if(pinEntry.length===6)$('#loginBtn')?.focus()},
+  login:()=>doLogin(),
+  logout:()=>showModal(`<h3>ออกจากระบบ?</h3><p class="muted" style="margin:0">เครื่องนี้จะต้องใส่ชื่อและรหัสหน้างานใหม่${Q.ops.length?` และยังมี ${Q.ops.length} รายการที่ยังไม่ได้ส่ง จะส่งต่อเมื่อเข้าใหม่`:''}</p><div style="display:flex;gap:10px"><button class="btn danger" data-act="logoutOk">ออกจากระบบ</button><button class="btn" data-act="hideModal">ยกเลิก</button></div>`),
+  logoutOk:()=>{hideModal();S.me=null;LS.set('rcv_me',null);if(chan&&sb)sb.removeChannel(chan);render()},
+  go:d=>{if(d.v==='close'){S.closeNotes={}}if(d.v==='dash')loadWeek().then(refresh);go(d.v)},
+  back:()=>history.length>1?history.back():go('home'),
+  lotFilter:d=>{S.lotFilter=d.v;render();if(d.v==='closed'){const ids=C.receipts.filter(r=>r.status==='closed'&&!C.loaded[r.id]).map(r=>r.id).slice(0,30);loadDetails(ids).then(refresh)}},
+  openLot:d=>{S.q='';go('lot',{rid:d.id})},
+  mode:d=>{S.mode[S.rid]=d.v;LS.set('rcv_mode',S.mode);render()},
+  openBox:d=>{go('box',{box:d.b},!!d.replace)},
+  openPart:d=>{S.pickBox=null;S.dmg={qty:'',note:'',photo:null};S.moreOpen=false;go('part',{part:d.k,box:d.b||(S.view==='box'?S.box:null)})},
+  boxAll:()=>{const R=rollup(S.rid),b=R.boxes.find(x=>x.key===S.box);if(!b)return;
+    const items=b.list.filter(i=>i.counted<i.expected).map(i=>({partNo:i.partNo,box:b.key==='—'?'':b.key,qty:i.expected-i.counted}));
+    addCounts(items,'ลัง '+b.key,'box');toast(`ลัง ${b.key} ครบตามเอกสาร · ${items.length} รายการ`)},
+  addLine:d=>{const R=rollup(S.rid),b=R.boxes.find(x=>x.key===S.box),i=b&&b.items.get(d.k);if(!i)return;
+    addCounts([{partNo:i.partNo,box:b.key==='—'?'':b.key,qty:+d.q}],'+'+fmt(d.q));toast(`${i.partNo} +${fmt(d.q)}`)},
+  add:d=>{const R=rollup(S.rid),p=R.parts.find(x=>x.key===S.part);if(!p)return;addCounts([{partNo:p.partNo,box:partBox(p),qty:+d.q}],'+'+fmt(d.q));toast(`${p.partNo} +${fmt(d.q)} · รวม ${fmt(p.counted+(+d.q))}/${fmt(p.expected)}`)},
+  pickBox:d=>{S.pickBox=d.v;render()},
+  keypad:()=>openKeypad(),
+  closeSheet:()=>closeSheet(),
+  kp:d=>{if(d.k==='bk')S.entry=S.entry.slice(0,-1);else if(S.entry.length<7)S.entry=(S.entry+d.k).replace(/^0+/,'');renderSheet()},
+  kpSign:()=>{S.kpSign*=-1;renderSheet()},
+  kpGo:()=>{const n=+S.entry;if(!n)return;const R=rollup(S.rid),p=R.parts.find(x=>x.key===S.part);if(!p)return;
+    addCounts([{partNo:p.partNo,box:partBox(p),qty:n*S.kpSign,note:S.kpSign<0?'หักยอด':''}],(S.kpSign<0?'−':'+')+fmt(n),'manual');closeSheet();toast(`${p.partNo} ${S.kpSign<0?'−':'+'}${fmt(n)}`)},
+  undo:()=>undo(),
+  tagOk:()=>{const t=S.tagProp;if(!t)return;const R=rollup(S.rid),p=R.parts.find(x=>x.key===t.key);addCounts([{partNo:p.partNo,box:partBox(p),qty:t.qty,note:norm(t.code)!==t.key?'ป้าย: '+t.code:''}],'+'+fmt(t.qty),'tag');S.tagProp=null;toast(`${p.partNo} +${fmt(t.qty)}`)},
+  tagNo:()=>{S.tagProp=null;render()},
+  scan:()=>$('#fTag').click(),
+  pickTag:d=>{hideModal();S.tagProp=+d.q?{key:d.k,code:d.c,qty:+d.q,note:'เลือกรายการเอง ตรวจรหัสบนป้ายให้ตรง'}:null;go('part',{part:d.k,pickBox:null})},
+  unlisted:d=>{hideModal();addCounts([{partNo:String(d.c).toUpperCase(),box:'',qty:+d.q,note:'ไม่อยู่ในเอกสาร'}],'+'+fmt(d.q),'tag');toast('บันทึกเป็นของนอกเอกสารแล้ว')},
+  hideModal:()=>hideModal(),
+  photo:()=>$('#fPhoto').click(),
+  saveDmg:()=>{const R=rollup(S.rid),p=R.parts.find(x=>x.key===S.part);const n=Math.round(+S.dmg.qty);
+    if(!(n>0)){toast('ใส่จำนวนที่เสียหาย');return}if(!S.dmg.note.trim()){toast('ใส่อาการของเสียหาย');return}
+    const id=uuid();write('count_events','insert',{id,receipt_id:S.rid,part_no:p.partNo,box:partBox(p),qty:n,kind:'damage',source:'manual',note:S.dmg.note.trim(),photo:S.dmg.photo||null,counted_by:S.me.name,created_at:now(),voided:false});
+    S.lastAction={ids:[id],label:'บันทึกเสียหาย'};S.dmg={qty:'',note:'',photo:null};toast('บันทึกของเสียหายแล้ว')},
+  closeLot:()=>{const R=rollup(S.rid);const mis=R.parts.filter(p=>p.diff!==0||p.damage);
+    for(const p of mis){const v=(S.closeNotes[p.key]??(p.note?p.note.note:'')).trim();if(!v){toast(`ใส่เหตุผลของ ${p.partNo} ก่อน`);return}}
+    for(const p of mis){const v=(S.closeNotes[p.key]??(p.note?p.note.note:'')).trim();if(!p.note||p.note.note!==v)write('part_notes','upsert',{receipt_id:S.rid,part_no:p.key,note:v,noted_by:S.me.name,noted_at:now()})}
+    write('receipts','update',{id:S.rid,status:'closed',closed_at:now(),closed_by:S.me.name});toast('ปิดล็อตแล้ว');go('lot',{},true)},
+  reopen:()=>{write('receipts','update',{id:S.rid,status:'open',closed_at:null,closed_by:null});toast('เปิดล็อตอีกครั้งแล้ว')},
+  csv:()=>csv(),
+  pickDoc:()=>$('#fDoc').click(),
+  rmPhoto:d=>{const p=S.photos.splice(+d.i,1)[0];if(p)URL.revokeObjectURL(p.url);render()},
+  readDoc:()=>readDoc(),
+  manual:()=>{S.draft={stage:'review',head:{name:'',supplier:'',model:'',docNo:'',docDate:''},lines:[blank(),blank(),blank()],source:'manual'};saveDraft();render()},
+  addLine2:()=>{S.draft.lines.push(blank());saveDraft();render();const ins=document.querySelectorAll('.lrow .f-part input');ins[ins.length-1]?.focus()},
+  rmLine:d=>{S.draft.lines.splice(+d.i,1);saveDraft();render()},
+  discard:()=>{S.draft=null;saveDraft();render()},
+  saveLot:()=>saveLot()
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const f=A[b.dataset.act];if(f){e.preventDefault();f(b.dataset,b)}});
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='more')S.moreOpen=e.target.open},true);
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='q'){S.q=t.value;const el=$('#plist');if(el)el.innerHTML=partListHTML(rollup(S.rid));return}
+  if(t.id==='lname'){nameEntry=t.value;return}
+  const b=t.dataset&&t.dataset.bind;if(!b)return;const [g,a,c]=b.split('.');
+  if(g==='head'){S.draft.head[a]=t.value;saveDraft()}
+  else if(g==='line'){const l=S.draft.lines[+a];l[c]=t.value;if(l.conf!=null&&l.conf<.8){l.conf=1;const row=t.closest('.lrow');row?.classList.remove('low');row?.querySelector('.flag')?.remove()}saveDraft()}
+  else if(g==='dmg')S.dmg[a]=t.value;
+  else if(g==='close')S.closeNotes[b.slice(6)]=t.value;
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#modal').innerHTML)hideModal();else closeSheet()}if(e.key==='Enter'&&e.target.id==='lname'){e.preventDefault();doLogin()}});
+$('#fDoc').addEventListener('change',e=>{for(const f of e.target.files)if(f.type.startsWith('image/'))S.photos.push({file:f,url:URL.createObjectURL(f)});e.target.value='';render()});
+$('#fTag').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)scanTag(f)});
+$('#fPhoto').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{S.dmg.photo=await shrink(f,800,.6);render()}catch(err){toast('ใช้รูปนี้ไม่ได้')}});
+
+/* ============ boot ============ */
+async function start(){
+  makeClient();render();
+  try{await loadReceipts()}catch(e){if(S.dbReady!==false)toast('โหลดข้อมูลไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต',4000)}
+  subscribe();flush();
+  try{history.replaceState({view:S.view,rid:S.rid,box:S.box,part:S.part},'')}catch(e){}
+  render();
+}
+if(S.draft&&S.draft.stage==='reading')S.draft=null;
+if(typeof supabase==='undefined'){document.body.innerHTML='<div class="login"><h1>โหลดไม่สำเร็จ</h1><p>ตรวจสอบอินเทอร์เน็ตแล้วเปิดใหม่อีกครั้ง</p></div>'}
+else if(S.me)start();else render();
+</script>
+</body>
+</html>
